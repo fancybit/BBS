@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+ <!-- Copy built driver files for project named BBSDrv into centralized BuildOutput without project-name folder -->
+ <Target Name="CopyBBSDrvBuiltFilesToCentralBuildOutput" AfterTargets="Build" Condition="'$(MSBuildProjectName)' == 'BBSDrv'">
+ <!-- Determine source directory: prefer OutDir, fallback to OutputPath, then TargetDir -->
+ <PropertyGroup>
+ <_DriverOutDir Condition=" '$(OutDir)' != ''">$(OutDir)</_DriverOutDir>
+ <_DriverOutDir Condition=" '$(_DriverOutDir)' == '' and '$(OutputPath)' != ''">$(OutputPath)</_DriverOutDir>
+ <_DriverOutDir Condition=" '$(_DriverOutDir)' == '' and '$(TargetDir)' != ''">$(TargetDir)</_DriverOutDir>
+ <_DriverOutDir Condition=" '$(_DriverOutDir)' == ''">$(MSBuildProjectDirectory)\</_DriverOutDir>
+
+ <!-- Central root defined in Directory.Build.props; fallback to repo-level BuildOutput -->
+ <_CentralRoot Condition=" '$(BuildOutputRoot)' != ''">$(BuildOutputRoot)</_CentralRoot>
+ <_CentralRoot Condition=" '$(_CentralRoot)' == ''">$(MSBuildThisFileDirectory)BuildOutput</_CentralRoot>
+
+ <!-- Use TargetFramework and Configuration for centralized path (no platform segment) -->
+ <_CentralDestDir>$(_CentralRoot)\$(TargetFramework)\$(Configuration)\</_CentralDestDir>
+ </PropertyGroup>
+
+ <!-- Ensure destination exists -->
+ <MakeDir Directories="$(_CentralDestDir)" />
+
+ <!-- Collect driver artifacts: .sys, .inf, .cat and any related files in the output dir -->
+ <ItemGroup>
+ <_DriverFiles Include="$(_DriverOutDir)**\*.sys" />
+ <_DriverFiles Include="$(_DriverOutDir)**\*.inf" />
+ <_DriverFiles Include="$(_DriverOutDir)**\*.cat" />
+ <_DriverFiles Include="$(_DriverOutDir)**\*.dll" />
+ <_DriverFiles Include="$(_DriverOutDir)**\*.exe" />
+ </ItemGroup>
+
+ <Message Importance="High" Text="Copying %( _DriverFiles.Identity ) to $(_CentralDestDir)" Condition=" '@(_DriverFiles)' != '' " />
+
+ <Copy SourceFiles="@(_DriverFiles)"
+ DestinationFolder="$(_CentralDestDir)"
+ SkipUnchangedFiles="true"
+ />
+ </Target>
+</Project>

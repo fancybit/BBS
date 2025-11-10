@@ -1,0 +1,28 @@
+<Project>
+ <PropertyGroup>
+ <!-- Common root for all project outputs -->
+ <BuildOutputRoot>$(MSBuildThisFileDirectory)BuildOutput</BuildOutputRoot>
+ </PropertyGroup>
+
+ <!-- For SDK-style (.NET) projects: place final outputs under BuildOutput\<tfm>\<configuration> -->
+ <PropertyGroup Condition="'$(TargetFramework)' != '' or '$(TargetFrameworks)' != ''">
+ <!-- Only change OutputPath (final binaries). Leave obj/Intermediate paths alone to avoid tooling issues. -->
+ <OutputPath>$(BuildOutputRoot)\$(TargetFramework)\$(Configuration)\</OutputPath>
+ </PropertyGroup>
+
+ <!-- For Visual C++ projects: set OutDir to BuildOutput\<Platform>\<Configuration> -->
+ <PropertyGroup Condition="'$(VCTargetsPath)' != ''">
+ <OutDir>$(BuildOutputRoot)\$(Platform)\$(Configuration)\</OutDir>
+ <!-- Do not override IntDir to avoid moving obj files -->
+ <!-- Ensure DLL/EXE names go into OutDir -->
+ <TargetName>$(MSBuildProjectName)</TargetName>
+ </PropertyGroup>
+
+ <!-- Remove stale centralized obj folders under BuildOutput before building to avoid duplicate generated sources -->
+ <Target Name="RemoveCentralObjDirs" BeforeTargets="Build">
+ <ItemGroup>
+ <CentralObjDirs Include="$(BuildOutputRoot)\**\obj" />
+ </ItemGroup>
+ <RemoveDir Directories="@(CentralObjDirs)" Condition="Exists('%(CentralObjDirs.Identity)')" />
+ </Target>
+</Project>

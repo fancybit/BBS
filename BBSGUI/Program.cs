@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using System.Threading;
+using System;
 using System.Windows.Forms;
 using System.Drawing;
 
@@ -9,6 +10,8 @@ namespace BBSGUI
     {
         private static Mutex? s_singleInstanceMutex;
         private static readonly string MutexId = GetMutexName();
+        private static NotifyIcon? s_trayIcon;
+        private static bool s_allowExit = false;
 
         /// <summary>
         ///  The main entry point for the application.
@@ -24,18 +27,29 @@ namespace BBSGUI
                 return;
             }
 
-            Application.ApplicationExit += OnApplicationExit;
+            AppDomain.CurrentDomain.ProcessExit += OnApplicationExit;
 
             ApplicationConfiguration.Initialize();
 
-            // Create main window
+#if WINDOWS
+            // Create main window (WinForms)
             var mainForm = new ControlPanel();
 
+            // Intercept close to hide instead of exit
+            mainForm.FormClosing += (s, e) =>
+            {
+                if (!s_allowExit && e.CloseReason == CloseReason.UserClosing)
+                {
+                    e.Cancel = true;
+                    mainForm.Hide();
+                }
+            };
+
             // Create tray icon
-            var tray = new NotifyIcon();
-            tray.Icon = SystemIcons.Application;
-            tray.Text = "ControlPanel";
-            tray.Visible = true;
+            s_trayIcon = new NotifyIcon();
+            s_trayIcon.Icon = SystemIcons.Application;
+            s_trayIcon.Text = "ControlPanel";
+            s_trayIcon.Visible = true;
 
             // Context menu
             var menu = new ContextMenuStrip();
@@ -52,17 +66,22 @@ namespace BBSGUI
             exitItem.Click += (s, e) =>
             {
                 // Dispose tray and exit
-                tray.Visible = false;
-                tray.Dispose();
+                if (s_trayIcon != null)
+                {
+                    s_trayIcon.Visible = false;
+                    s_trayIcon.Dispose();
+                    s_trayIcon = null;
+                }
+                s_allowExit = true;
                 Application.Exit();
             };
             menu.Items.Add(openItem);
             menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add(exitItem);
-            tray.ContextMenuStrip = menu;
+            s_trayIcon.ContextMenuStrip = menu;
 
             // Double-click opens the window
-            tray.DoubleClick += (s, e) =>
+            s_trayIcon.DoubleClick += (s, e) =>
             {
                 if (mainForm.WindowState == FormWindowState.Minimized)
                     mainForm.WindowState = FormWindowState.Normal;
@@ -71,7 +90,7 @@ namespace BBSGUI
                 mainForm.Activate();
             };
 
-            // Optionally hide main window on minimize to keep it in tray
+            // Hide to tray on minimize
             mainForm.Resize += (s, e) =>
             {
                 if (mainForm.WindowState == FormWindowState.Minimized)
@@ -82,12 +101,24 @@ namespace BBSGUI
 
             // Run application
             Application.Run(mainForm);
+#else
+            // Non-Windows: run app (no tray)
+            var app = new ControlPanel();
+#endif
         }
 
         private static void OnApplicationExit(object? sender, EventArgs e)
         {
             try
             {
+#if WINDOWS
+                if (s_trayIcon != null)
+                {
+                    try { s_trayIcon.Visible = false; } catch { }
+                    try { s_trayIcon.Dispose(); } catch { }
+                    s_trayIcon = null;
+                }
+#endif
                 if (s_singleInstanceMutex != null)
                 {
                     try { s_singleInstanceMutex.ReleaseMutex(); } catch { }

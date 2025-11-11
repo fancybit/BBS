@@ -17,7 +17,7 @@ namespace BBSService
             ServiceBase[] ServicesToRun;
             ServicesToRun = new ServiceBase[]
             {
-                new Service1()
+                new BBSService()
             };
             ServiceBase.Run(ServicesToRun);
         }
